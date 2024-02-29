@@ -1,113 +1,175 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+import React, { useRef, useState } from 'react';
+import LoadingWidget from '@/components/LoadingWidget';
+
+const MyComponent: React.FC = () => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [loading, setLoading] = useState<boolean>(false);
+    const [imageUrls, setImageUrls] = useState<string[]>([]);
+    const [showProfileDialog, setShowProfileDialog] = useState<boolean>(false);
+
+
+    const handleDownload = async (imageUrl: string) => {
+        try {
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+    
+            // Set the content type explicitly
+            const contentType = 'image/jpeg'; // Replace with the actual content type of your image
+    
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(new Blob([blob], { type: contentType }));
+            link.download = `downloaded_image_${new Date().getTime()}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Error downloading image:', error);
+        }
+    };
+    
+
+    const handleProfileClick = () => {
+        setShowProfileDialog(true);
+    };
+
+    const handleCloseProfileDialog = () => {
+        setShowProfileDialog(false);
+    };
+
+    const handleSubmit = async () => {
+        setLoading(true);
+        setImageUrls([]);
+        const prompt = inputRef.current?.value || '';
+
+        try {
+            const response = await fetch('/api/gen', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt: prompt }),
+            });
+
+            const data = await response.json();
+            setImageUrls((prevImageUrls) => [...prevImageUrls, ...data.imageUrls]);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className='h-full overflow-y-auto overflow-x-hidden'>
+            <style>
+                {`
+                .btn, .selected_question {
+                        font-size: 16px; 
+                        font-weight: 600; 
+                        color: #f5f5f5;
+                        cursor: pointer;
+                        text-align:left;
+                        border: none;
+                        background-size: 300% 100%;
+                    
+                        border-radius: 10px;
+                        moz-transition: all .4s ease-in-out;
+                        -o-transition: all .4s ease-in-out;
+                        -webkit-transition: all .4s ease-in-out;
+                        transition: all .4s ease-in-out;
+                    
+                        background-image: linear-gradient(to right, #29323c, #485563, #2b5876, #4e4376);
+                        box-shadow: 0 4px 15px 0 rgba(45, 54, 65, 0.75);
+                    
+                    }
+                    
+                    .btn:hover, .btn.selected_post{
+                        background-position: 100% 0;
+                        moz-transition: all .4s ease-in-out;
+                        -o-transition: all .4s ease-in-out;
+                        -webkit-transition: all .4s ease-in-out;
+                        transition: all .4s ease-in-out;
+                    }
+                    
+                    .btn.selected_post {
+                    
+                        background-image: linear-gradient(to right, #2b2c2e, #485563, black, black) !important;
+                        box-shadow: 0 4px 15px 0 rgba(45, 54, 65, 0.75);
+                    }
+                    
+                    
+                    .btn:focus {
+                        outline: none;
+                    }
+
+                    .fullscreen-overlay {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0, 0, 0, 0.8);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 1000;
+                        cursor: pointer;
+                    }
+    
+                    .fullscreen-image {
+                        max-width: 90%;
+                        max-height: 90%;
+                        object-fit: contain;
+                        cursor: pointer;
+                    }
+                `}
+            </style>
+            <div className='flex flex-row gap-5 p-5'>
+                <div className='cursor-pointer' onClick={handleProfileClick}>
+                    <img src="https://github.com/SR-Hossain.png" alt="Your Picture" className="w-12 h-12 rounded-full" />
+                </div>
+                <input
+                    ref={inputRef}
+                    className='h-12 p-4 btn'
+                    type='text'
+                    placeholder="Enter your prompts"
+                />
+                <button className='btn px-6 py-2' onClick={handleSubmit}>Generate pictures!</button>
+            </div>
+            {loading && <div className='center'><LoadingWidget /></div>}
+
+            {!loading && imageUrls.length > 0 && (
+                <div className='flex flex-wrap p-10 gap-10'>
+                    {imageUrls.map((url, index) => (
+                        <div key={index} style={{ overflow: 'hidden', borderRadius: '10px', width: '42vw', position: 'relative' }}>
+                            <img src={url} alt={`Generated ${index + 1}`} style={{ width: '100%', objectFit: 'cover', margin: '0 0 -70px 0' }} />
+                            <div className="w-24 btn p-3" onClick={(e) => { e.stopPropagation(); handleDownload(url); }}>
+                                Download
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+{showProfileDialog && (
+    <div className='fullscreen-overlay' onClick={handleCloseProfileDialog}>
+        <div className='p-5 bg-dark-mode rounded-md'>
+            <div className='flex flex-col items-center'>
+                <img src="https://github.com/SR-Hossain.png" className="w-40 h-40 rounded-full mb-3" />
+                <h2 className='text-white text-lg font-bold mb-2'>Syed Sazid Hossain Rezvi</h2>
+                <p className='text-gray-300 text-sm mb-4'>Fullstack Software Engineer</p>
+                <a href="mailto:ssh.rezvi@gmail.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Contact: ssh.rezvi@gmail.com</a>
+                <a href="https://github.com/SR-Hossain/sozo" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">GitHub Repository of This Project</a>
+            </div>
         </div>
-      </div>
+    </div>
+)}
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
 
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
+        </div>
+    );
+};
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  );
-}
+export default MyComponent;
